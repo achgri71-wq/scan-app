@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>نظام مسح الطلبيات</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg-2: #0f1729;
+    --card: rgba(255, 255, 255, 0.035);
+    --card-hover: rgba(255, 255, 255, 0.06);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.14);
+    --fg: #f1f5f9;
+    --fg-dim: #cbd5e1;
+    --muted: #94a3b8;
+    --muted-2: #64748b;
+    --accent: #f97316;
+    --accent-2: #fbbf24;
+    --accent-glow: rgba(249, 115, 22, 0.4);
+    --success: #22c55e;
+    --success-glow: rgba(34, 197, 94, 0.4);
+    --danger: #ef4444;
+    --danger-glow: rgba(239, 68, 68, 0.4);
+    --transfer: #06b6d4;
+    --transfer-glow: rgba(6, 182, 212, 0.4);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Readex Pro', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    min-height: 100vh;
+    line-height: 1.5;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 20% 0%, rgba(249, 115, 22, 0.12), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 100%, rgba(6, 182, 212, 0.08), transparent 60%);
+    background-attachment: fixed;
+    overscroll-behavior: none;
+  }
+
+  .app-shell {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 16px 14px 90px;
+  }
+
+  /* ===== HEADER ===== */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-mark {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center;
+    color: #1a0f00; font-size: 16px;
+    box-shadow: 0 8px 24px -8px var(--accent-glow);
+  }
+  .brand-text h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand-text p { font-size: 11px; color: var(--muted); }
+
+  .stats-strip { display: flex; gap: 8px; align-items: center; }
+  .stat-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 12px; font-weight: 600;
+  }
+  .stat-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  .stat-pill.success .dot { background: var(--success); }
+  .stat-pill .num { color: var(--fg); font-feature-settings: "tnum"; }
+  .stat-pill .lbl { color: var(--muted); }
+
+  /* ===== VIEWS ===== */
+  .view { display: none; animation: fadeIn 0.3s; }
+  .view.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ===== FORM ELEMENTS ===== */
+  .add-bin-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+  .input-field {
+    flex: 1; min-width: 0;
+    padding: 12px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--fg);
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    transition: all 0.2s;
+  }
+  .input-field:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: rgba(249, 115, 22, 0.06);
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+  }
+
+  /* ===== UNIFIED BUTTONS ===== */
+  .btn {
+    padding: 12px 18px;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #ea580c);
+    color: #1a0f00;
+    box-shadow: 0 6px 16px -6px var(--accent-glow);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -8px var(--accent-glow); }
+  
+  .btn-secondary {
+    background: var(--card);
+    border-color: var(--border);
+    color: var(--fg);
+  }
+  .btn-secondary:hover { background: var(--card-hover); border-color: var(--border-strong); }
+
+  .btn-danger {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: var(--danger);
+  }
+  .btn-danger:hover { background: rgba(239, 68, 68, 0.2); }
+
+  .btn-icon {
+    width: 44px; height: 44px;
+    padding: 0;
+    border-radius: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    flex-shrink: 0;
+    font-size: 16px;
+    display: grid;
+    place-items: center;
+  }
+  .btn-icon:hover { background: var(--card-hover); border-color: var(--border-strong); }
+  .btn-icon.danger { color: var(--muted); }
+  .btn-icon.danger:hover { color: var(--danger); border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1); }
+  .top-bar .btn-icon { width: 36px; height: 36px; border-radius: 10px; font-size: 14px; }
+
+  /* ===== ACCORDION BINS ===== */
+  .bins-list { display: flex; flex-direction: column; gap: 10px; }
+  .bin-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .bin-card.expanded {
+    border-color: rgba(249, 115, 22, 0.3);
+    background: linear-gradient(180deg, rgba(249, 115, 22, 0.04), var(--card));
+  }
+
+  .bin-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .bin-toggle {
+    width: 24px; height: 24px;
+    display: grid; place-items: center;
+    color: var(--muted);
+    transition: transform 0.3s;
+    font-size: 12px;
+  }
+  .bin-card.expanded .bin-toggle { transform: rotate(180deg); color: var(--accent); }
+
+  .bin-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: rgba(249, 115, 22, 0.1);
+    border: 1px solid rgba(249, 115, 22, 0.2);
+    display: grid; place-items: center;
+    color: var(--accent-2);
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .bin-name-input {
+    flex: 1; min-width: 0;
+    background: transparent;
+    border: none;
+    color: var(--fg);
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 4px 6px;
+    border-radius: 6px;
+  }
+  .bin-name-input:hover { background: rgba(255, 255, 255, 0.04); }
+  .bin-name-input:focus { outline: none; background: rgba(255, 255, 255, 0.06); }
+
+  .bin-count {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 999px;
+    font-weight: 600;
+    flex-shrink: 0;
+    font-feature-settings: "tnum";
+  }
+
+  .bin-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .bin-card.expanded .bin-body { max-height: 750px; }
+
+  .bin-body-inner {
+    padding: 0 16px 16px;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+  }
+
+  .scan-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .scan-input-wrap { position: relative; flex: 1; }
+  .scan-input {
+    width: 100%;
+    padding: 12px 40px 12px 14px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    color: var(--fg);
+    font-family: inherit, monospace;
+    font-size: 15px;
+    font-weight: 600;
+    direction: ltr;
+    text-align: left;
+  }
+  .scan-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12);
+  }
+  .scan-input::placeholder { color: var(--muted-2); font-weight: 500; }
+  .scan-icon {
+    position: absolute;
+    right: 14px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent);
+    font-size: 16px;
+    pointer-events: none;
+  }
+
+  .codes-list {
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .codes-list::-webkit-scrollbar { width: 4px; }
+  .codes-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+
+  .code-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    animation: slideIn 0.3s;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+
+  .code-index {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: rgba(249, 115, 22, 0.12);
+    color: var(--accent-2);
+    display: grid; place-items: center;
+    font-size: 10px; font-weight: 700;
+    flex-shrink: 0;
+    font-feature-settings: "tnum";
+  }
+  .code-value {
+    flex: 1; min-width: 0;
+    font-weight: 600;
+    direction: ltr;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-feature-settings: "tnum";
+  }
+  .code-time { color: var(--muted-2); font-size: 10px; flex-shrink: 0; font-feature-settings: "tnum"; }
+  .code-delete {
+    width: 24px; height: 24px;
+    background: transparent;
+    border: none;
+    color: var(--muted-2);
+    cursor: pointer;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  .code-delete:hover { color: var(--danger); background: rgba(239, 68, 68, 0.1); }
+
+  .bin-footer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .bin-footer-actions .btn { flex: 1 1 45%; padding: 10px; font-size: 13px; }
+
+  .empty-codes {
+    padding: 16px;
+    text-align: center;
+    color: var(--muted-2);
+    font-size: 12px;
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+
+  .empty-state {
+    padding: 40px 20px;
+    text-align: center;
+  }
+  .empty-state i { font-size: 32px; color: var(--muted-2); margin-bottom: 12px; opacity: 0.5; }
+  .empty-state h3 { font-size: 16px; margin-bottom: 4px; }
+  .empty-state p { font-size: 13px; color: var(--muted); }
+
+  /* Bin Select Checkbox */
+  .bin-select-wrap {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    border: 1.5px solid var(--border-strong);
+    display: grid; place-items: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+  .bin-select-wrap i { font-size: 10px; color: transparent; transition: color 0.2s; }
+  .bin-select-wrap input { display: none; }
+  .bin-select-wrap.checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .bin-select-wrap.checked i { color: #1a0f00; }
+
+  /* ===== SEARCH VIEW ===== */
+  .search-result { margin-top: 20px; animation: fadeIn 0.3s; }
+  .result-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+  }
+  .result-card.found {
+    border-color: rgba(34, 197, 94, 0.4);
+    background: linear-gradient(180deg, rgba(34, 197, 94, 0.06), var(--card));
+  }
+  .result-card.not-found {
+    border-color: rgba(239, 68, 68, 0.4);
+    background: linear-gradient(180deg, rgba(239, 68, 68, 0.06), var(--card));
+  }
+  .result-icon {
+    width: 56px; height: 56px;
+    border-radius: 16px;
+    display: grid; place-items: center;
+    margin: 0 auto 14px;
+    font-size: 22px;
+  }
+  .result-card.found .result-icon { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+  .result-card.not-found .result-icon { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+  
+  .result-title { font-size: 17px; font-weight: 700; margin-bottom: 12px; }
+  
+  .result-details {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: right;
+  }
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-row .lbl { color: var(--muted); font-size: 13px; }
+  .detail-row .val { color: var(--fg); font-weight: 700; font-feature-settings: "tnum"; }
+
+  /* ===== TOAST ===== */
+  .toast-container {
+    position: fixed; bottom: 80px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 1100;
+    display: flex; flex-direction: column; gap: 8px;
+    pointer-events: none;
+    width: max-content; max-width: calc(100vw - 32px);
+  }
+  .toast {
+    background: rgba(15, 23, 41, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    padding: 10px 16px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 600; color: var(--fg);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    animation: toastIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .toast.success { border-color: rgba(34, 197, 94, 0.4); }
+  .toast.duplicate { border-color: rgba(239, 68, 68, 0.4); }
+  .toast.transfer { border-color: rgba(6, 182, 212, 0.4); }
+  .toast-icon { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; }
+  .toast.success .toast-icon { color: var(--success); background: rgba(34, 197, 94, 0.15); }
+  .toast.duplicate .toast-icon { color: var(--danger); background: rgba(239, 68, 68, 0.15); }
+  .toast.transfer .toast-icon { color: var(--transfer); background: rgba(6, 182, 212, 0.15); }
+  .toast.info .toast-icon { color: var(--accent-2); background: rgba(251, 191, 36, 0.15); }
+  .toast.fadeout { animation: toastOut 0.3s forwards; }
+
+  @keyframes toastIn { from { opacity: 0; transform: translateY(20px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes toastOut { to { opacity: 0; transform: translateY(20px) scale(0.9); } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* ===== FLASH EFFECTS ===== */
+  .flash-success { animation: flashS 0.5s; }
+  @keyframes flashS { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } 30% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.4); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
+  .flash-duplicate { animation: flashD 0.4s; }
+  @keyframes flashD { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+  .flash-transfer { animation: flashT 0.6s; }
+  @keyframes flashT { 0% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); } 30% { box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.5); } 100% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); } }
+
+  /* ===== MODALS ===== */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    z-index: 999;
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.show { display: flex; }
+  
+  .modal {
+    background: #131a2c;
+    border: 1px solid var(--border-strong);
+    border-radius: 20px;
+    padding: 24px;
+    max-width: 360px;
+    width: 100%;
+    animation: modalIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes modalIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+  .modal-icon { width: 48px; height: 48px; border-radius: 14px; background: rgba(239, 68, 68, 0.15); color: var(--danger); display: grid; place-items: center; font-size: 20px; margin: 0 auto 14px; }
+  .modal h3 { text-align: center; font-size: 17px; margin-bottom: 6px; }
+  .modal p { text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .modal-actions { display: flex; gap: 8px; }
+  .modal-actions .btn { flex: 1; }
+
+  .modal textarea {
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    color: var(--fg);
+    font-family: monospace;
+    font-size: 14px;
+    resize: vertical;
+    margin-bottom: 16px;
+    direction: ltr;
+    text-align: left;
+  }
+  .modal textarea:focus { outline: none; border-color: var(--accent); }
+
+  /* ===== CAMERA MODAL ===== */
+  .cam-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 1050;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .cam-overlay.show { display: flex; }
+  
+  .cam-sheet {
+    background: #0f1729;
+    border: 1px solid var(--border-strong);
+    border-bottom: none;
+    border-radius: 20px 20px 0 0;
+    padding: 20px;
+    width: 100%;
+    max-width: 800px;
+    animation: slideUp 0.3s ease-out;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+  .cam-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .cam-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .cam-title i { color: var(--accent); }
+
+  #reader {
+    width: 100% !important;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 2px solid var(--accent);
+  }
+  #reader video { border-radius: 14px; }
+  #reader > div { border-radius: 16px !important; }
+
+  .cam-status {
+    text-align: center; padding: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    margin-top: 12px;
+    font-size: 13px; color: var(--muted);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .cam-status.scanning { color: var(--success); }
+  .cam-status.scanning i { animation: pulse 1s infinite; }
+
+  /* ===== BOTTOM NAV ===== */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(10, 14, 26, 0.9);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 8px;
+    z-index: 50;
+    justify-content: center;
+  }
+  .nav-inner { display: flex; gap: 8px; width: 100%; max-width: 800px; }
+  .nav-btn {
+    flex: 1; padding: 10px;
+    background: transparent; border: none;
+    color: var(--muted);
+    font-family: inherit; font-size: 12px; font-weight: 600;
+    cursor: pointer; border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    transition: all 0.2s;
+  }
+  .nav-btn i { font-size: 18px; }
+  .nav-btn.active { color: var(--accent); background: rgba(249, 115, 22, 0.1); }
+</style>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f97316">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="icon" href="icon-192.png">
+
+</head>
+<body>
+
+<div class="app-shell">
+  <div class="top-bar">
+    <div class="brand">
+      <div class="brand-mark"><i class="fas fa-barcode"></i></div>
+      <div class="brand-text">
+        <h1>مسح الطلبيات</h1>
+        <p>إدارة الموزعين</p>
+      </div>
+    </div>
+    <div class="stats-strip">
+      <div class="stat-pill">
+        <span class="dot"></span>
+        <span class="num" id="binCount">0</span>
+        <span class="lbl">شريط</span>
+      </div>
+      <div class="stat-pill success">
+        <span class="dot"></span>
+        <span class="num" id="totalCodes">0</span>
+        <span class="lbl">كود</span>
+      </div>
+      <button class="btn-icon" id="shareSelectedBtn" title="مشاركة المحدد كملفات Excel">
+        <i class="fas fa-share-nodes"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- View 1: Bins -->
+  <section id="view-bins" class="view active">
+    <div class="add-bin-bar">
+      <input type="text" id="newBinName" class="input-field" placeholder="اسم الموزع الجديد..." maxlength="40">
+      <button class="btn btn-primary" id="addBinBtn">
+        <i class="fas fa-plus"></i>
+        <span>إضافة</span>
+      </button>
+    </div>
+    <div class="bins-list" id="binsList"></div>
+  </section>
+
+  <!-- View 2: Search -->
+  <section id="view-search" class="view">
+    <div class="add-bin-bar">
+      <input type="text" id="searchInput" class="input-field" placeholder="أدخل الكود للبحث..." style="direction: ltr; text-align: left;">
+      <button class="btn btn-primary" id="searchBtn">
+        <i class="fas fa-magnifying-glass"></i>
+        <span>بحث</span>
+      </button>
+    </div>
+    <div id="searchResult"></div>
+  </section>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal-icon"><i class="fas fa-triangle-exclamation"></i></div>
+    <h3 id="modalTitle">تأكيد</h3>
+    <p id="modalMessage"></p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="modalCancel">إلغاء</button>
+      <button class="btn btn-danger" id="modalConfirm">تأكيد</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Add Modal -->
+<div class="modal-overlay" id="bulkAddModal">
+  <div class="modal">
+    <div class="modal-icon" style="background: rgba(249, 115, 22, 0.15); color: var(--accent);"><i class="fas fa-layer-group"></i></div>
+    <h3 id="bulkModalTitle">إضافة أكواد متعددة</h3>
+    <p style="color:var(--muted); font-size:13px;">افصل بين الأكواد ب enter أو مسافة أو فاصلة</p>
+    <textarea id="bulkInput" rows="6" placeholder="501234\n501235\n501236"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="bulkCancel">إلغاء</button>
+      <button class="btn btn-primary" id="bulkConfirm">إضافة الأكواد</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden File Input for Excel Import -->
+<input type="file" id="excelImportInput" accept=".xlsx, .xls" style="display: none;">
+
+<!-- Camera Sheet -->
+<div class="cam-overlay" id="camOverlay">
+  <div class="cam-sheet">
+    <div class="cam-header">
+      <div class="cam-title">
+        <i class="fas fa-camera"></i>
+        <span id="camBinName">مسح الشريط</span>
+      </div>
+      <button class="btn-icon danger" id="closeCamBtn"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="reader"></div>
+    <div class="cam-status scanning" id="camStatus">
+      <i class="fas fa-circle-dot"></i>
+      <span>جارٍ المسح...</span>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<nav class="bottom-nav">
+  <div class="nav-inner">
+    <button class="nav-btn active" data-view="view-bins">
+      <i class="fas fa-list"></i>
+      <span>الشرائط</span>
+    </button>
+    <button class="nav-btn" data-view="view-search">
+      <i class="fas fa-magnifying-glass"></i>
+      <span>بحث</span>
+    </button>
+  </div>
+</nav>
+
+<script>
+  // ===== STATE =====
+  const STORAGE_KEY = 'scan_bins_v4';
+  let bins = [];
+  let expandedBinId = null;
+  let pendingAction = null;
+  let html5QrCode = null;
+  let isScanning = false;
+  let currentCamBinId = null;
+  let selectedBins = new Set();
+  let currentBulkBinId = null;
+  let currentImportBinId = null;
+
+  // ===== AUDIO =====
+  let audioCtx = null;
+  function getAudio() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+  function playTone(freq, duration, type = 'sine', volume = 0.95, delay = 0) {
+    const ctx = getAudio(); if (!ctx) return;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.value = -10;
+    compressor.knee.value = 10;
+    compressor.ratio.value = 12;
+    compressor.attack.value = 0;
+    compressor.release.value = 0.25;
+
+    osc.connect(gain);
+    gain.connect(compressor);
+    compressor.connect(ctx.destination);
+    
+    osc.type = type;
+    const start = ctx.currentTime + delay;
+    osc.frequency.setValueAtTime(freq, start);
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(volume, start + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+    osc.start(start); osc.stop(start + duration + 0.05);
+  }
+  function soundSuccess() { playTone(880, 0.1, 'sine', 0.95, 0); playTone(1320, 0.15, 'sine', 0.95, 0.08); }
+  function soundDuplicate() { playTone(250, 0.15, 'square', 0.95, 0); playTone(180, 0.2, 'square', 0.95, 0.18); }
+  function soundTransfer() { playTone(550, 0.1, 'sine', 0.95, 0); playTone(770, 0.1, 'sine', 0.95, 0.11); playTone(1100, 0.2, 'sine', 0.95, 0.22); }
+
+  // ===== STORAGE =====
+  function saveState() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(bins)); } catch (e) {} }
+  function loadState() { try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) bins = JSON.parse(raw) || []; } catch (e) { bins = []; } }
+
+  // ===== UTILS =====
+  function uid() { return 'b_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function formatTime(ts) { return new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }); }
+  function vibrate(p) { if (navigator.vibrate) try { navigator.vibrate(p); } catch (e) {} }
+  
+  // دالة لتنظيف الكود واستخراج الجزء المهم فقط (تجاهل الروابط)
+  function cleanCode(rawCode) {
+    if (!rawCode) return '';
+    let code = String(rawCode).trim().replace(/\/+$/, ''); // إزالة المسافات والشرطات المائلة في النهاية
+    if (code.includes('/')) {
+      // إذا كان النص يحتوي على رابط، قم بأخذ الجزء الأخير فقط بعد علامة /
+      const parts = code.split('/');
+      code = parts[parts.length - 1];
+    }
+    return code.trim();
+  }
+
+  // ===== TOAST =====
+  function showToast(message, type = 'info', duration = 2000) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    const icons = { success: 'fa-check', duplicate: 'fa-circle-exclamation', transfer: 'fa-arrow-right-arrow-left', info: 'fa-info' };
+    toast.innerHTML = `<div class="toast-icon"><i class="fas ${icons[type] || icons.info}"></i></div><span>${escapeHtml(message)}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => { toast.classList.add('fadeout'); setTimeout(() => toast.remove(), 300); }, duration);
+  }
+
+  // ===== BIN OPERATIONS =====
+  function createBin(name) {
+    name = (name || '').trim();
+    if (!name) return showToast('أدخل اسم الموزع', 'info'), null;
+    const bin = { id: uid(), name, codes: [], createdAt: Date.now() };
+    bins.push(bin);
+    saveState();
+    renderBins();
+    return bin;
+  }
+
+  function addBinFromView(name) {
+    const bin = createBin(name);
+    if (bin) {
+      expandBin(bin.id);
+      showToast('تم إنشاء الشريط', 'success');
+    }
+  }
+
+  function deleteBin(id) {
+    const bin = bins.find(b => b.id === id);
+    if (!bin) return;
+    pendingAction = { type: 'delete-bin', id, title: 'حذف الشريط', message: `حذف "${bin.name}" وجميع أكواده (${bin.codes.length})؟` };
+    showConfirmModal();
+  }
+
+  function clearBin(id) {
+    const bin = bins.find(b => b.id === id);
+    if (!bin || bin.codes.length === 0) return showToast('الشريط فارغ', 'info');
+    pendingAction = { type: 'clear-bin', id, title: 'مسح الأكواد', message: `مسح جميع أكواد "${bin.name}" (${bin.codes.length})؟` };
+    showConfirmModal();
+  }
+
+  function renameBin(id, newName) {
+    newName = (newName || '').trim();
+    if (!newName) { renderBins(); return; }
+    const bin = bins.find(b => b.id === id);
+    if (!bin || bin.name === newName) return;
+    bin.name = newName;
+    saveState();
+    showToast('تم التحديث', 'success');
+  }
+
+  function expandBin(id) {
+    expandedBinId = id;
+    document.querySelectorAll('.bin-card').forEach(c => {
+      c.classList.toggle('expanded', c.dataset.binId === id);
+    });
+    setTimeout(() => {
+      if (id === expandedBinId) {
+        const input = document.querySelector(`.bin-card[data-bin-id="${id}"] .scan-input`);
+        if (input) input.focus();
+      }
+    }, 400);
+  }
+
+  // ===== SELECTION & SHARING (MULTIPLE EXCEL FILES) =====
+  function updateShareSelectedBtn() {
+    const btn = document.getElementById('shareSelectedBtn');
+    if (!btn) return;
+    if (selectedBins.size > 0) {
+      btn.style.color = 'var(--accent)';
+      btn.style.borderColor = 'rgba(249, 115, 22, 0.5)';
+      btn.style.background = 'rgba(249, 115, 22, 0.1)';
+    } else {
+      btn.style.color = '';
+      btn.style.borderColor = '';
+      btn.style.background = '';
+    }
+  }
+
+  function toggleSelectBin(binId, isChecked) {
+    if (isChecked) {
+      selectedBins.add(binId);
+    } else {
+      selectedBins.delete(binId);
+    }
+    updateShareSelectedBtn();
+  }
+
+  // دالة ترتيب مخصصة للأكواد (DSH ثم DH ثم الباقي)
+  function getSortedCodesForExport(bin) {
+    return [...bin.codes].sort((a, b) => {
+      const aUpper = a.code.toUpperCase();
+      const bUpper = b.code.toUpperCase();
+      
+      const aDSH = aUpper.startsWith("DSH");
+      const bDSH = bUpper.startsWith("DSH");
+      const aDH = aUpper.startsWith("DH");
+      const bDH = bUpper.startsWith("DH");
+      
+      if (aDSH && !bDSH) return -1;
+      if (!aDSH && bDSH) return 1;
+      
+      if (aDH && !bDH) return -1;
+      if (!aDH && bDH) return 1;
+      
+      // إذا كانت من نفس المجموعة، رتبها أبجدياً
+      return aUpper.localeCompare(bUpper, undefined, { numeric: true, sensitivity: 'base' });
+    });
+  }
+
+  // Generate Excel Blob from Bins
+  function generateSingleExcelBlob(bin) {
+    const sortedCodes = getSortedCodesForExport(bin);
+    const data = [["الكود", "الوقت", "التاريخ"]];
+    
+    sortedCodes.forEach(c => {
+      const d = new Date(c.timestamp);
+      data.push([
+        c.code,
+        d.toLocaleTimeString('en-GB', { hour12: false }),
+        d.toLocaleDateString('en-GB')
+      ]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    if (!ws['!views']) ws['!views'] = [];
+    ws['!views'][0] = { RTL: true };
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "التقرير");
+
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    return new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+
+  async function shareBinsAsExcel(binIds) {
+    if (!binIds || binIds.length === 0) return showToast('لم يتم تحديد أي شريط', 'info');
+    
+    const targetBins = bins.filter(b => binIds.includes(b.id) && b.codes.length > 0);
+    if (targetBins.length === 0) return showToast('لا توجد أكواد للمشاركة', 'info');
+
+    const files = targetBins.map(bin => {
+      const blob = generateSingleExcelBlob(bin);
+      return new File([blob], `${bin.name}.xlsx`, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    });
+
+    if (navigator.canShare && navigator.canShare({ files })) {
+      try {
+        await navigator.share({
+          files: files,
+          title: 'مشاركة ملفات الأكواد',
+          text: `إليك ${files.length} ملفات أكواد`
+        });
+        showToast('تمت المشاركة بنجاح', 'success');
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          showToast('تعذرت المشاركة، سيتم التحميل', 'info');
+          files.forEach((f, i) => setTimeout(() => downloadBlob(f, f.name), i * 500));
+        }
+      }
+    } else {
+      showToast('المتصفح يمنع المشاركة المباشرة، سيتم تحميل الملفات', 'info', 3000);
+      files.forEach((f, i) => setTimeout(() => downloadBlob(f, f.name), i * 500));
+    }
+  }
+
+  function downloadBlob(blob, fileName) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName;
+    a.click(); 
+    URL.revokeObjectURL(a.href);
+  }
+
+  // ===== BULK ADD & IMPORT =====
+  function openBulkAddModal(binId) {
+    currentBulkBinId = binId;
+    const bin = bins.find(b => b.id === binId);
+    document.getElementById('bulkModalTitle').textContent = `إضافة أكواد إلى ${bin.name}`;
+    document.getElementById('bulkInput').value = '';
+    document.getElementById('bulkAddModal').classList.add('show');
+  }
+
+  function processBulkAdd() {
+    const text = document.getElementById('bulkInput').value;
+    if (!text.trim()) return showToast('لا توجد أكواد للإضافة', 'info');
+    
+    const bin = bins.find(b => b.id === currentBulkBinId);
+    if (!bin) return;
+
+    const codesToAdd = text.split(/[\s,\n\r\t]+/).map(c => cleanCode(c)).filter(c => c.length > 0);
+    
+    let addedCount = 0;
+    let duplicateCount = 0;
+
+    codesToAdd.forEach(code => {
+      if (!bin.codes.some(c => c.code === code)) {
+        bin.codes.unshift({ code, timestamp: Date.now() });
+        addedCount++;
+      } else {
+        duplicateCount++;
+      }
+    });
+
+    saveState();
+    renderBin(bin.id);
+    soundSuccess();
+    flashCard(bin.id, 'success');
+    showToast(`تمت إضافة ${addedCount} كود${duplicateCount > 0 ? ` (وتجاهل ${duplicateCount} مكرر)` : ''}`, 'success', 3000);
+    document.getElementById('bulkAddModal').classList.remove('show');
+    currentBulkBinId = null;
+  }
+
+  function triggerExcelImport(binId) {
+    currentImportBinId = binId;
+    document.getElementById('excelImportInput').click();
+  }
+
+  function handleExcelImport(event) {
+    const file = event.target.files[0];
+    if (!file || !currentImportBinId) return;
+
+    const bin = bins.find(b => b.id === currentImportBinId);
+    if (!bin) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+        
+        let addedCount = 0;
+        let duplicateCount = 0;
+
+        rows.forEach(row => {
+          if (row && row.length > 0 && row[0]) {
+            const code = cleanCode(String(row[0])); // تنظيف الكود المستخرج من الإكسيل
+            if (code && !bin.codes.some(c => c.code === code)) {
+              bin.codes.unshift({ code, timestamp: Date.now() });
+              addedCount++;
+            } else if (code) {
+              duplicateCount++;
+            }
+          }
+        });
+
+        saveState();
+        renderBin(bin.id);
+        soundSuccess();
+        flashCard(bin.id, 'success');
+        showToast(`تم استيراد ${addedCount} كود${duplicateCount > 0 ? ` (وتجاهل ${duplicateCount} مكرر)` : ''}`, 'success', 3000);
+
+      } catch (err) {
+        showToast('فشل قراءة ملف Excel', 'duplicate');
+      }
+      event.target.value = '';
+      currentImportBinId = null;
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+
+  // ===== SCAN LOGIC =====
+  function handleScan(binId, code) {
+    code = cleanCode(code); // تنظيف الكود قبل المعالجة
+    if (!code) return;
+    
+    const targetBin = bins.find(b => b.id === binId);
+    if (!targetBin) return showToast('اختر شريطاً أولاً', 'info');
+
+    if (targetBin.codes.some(c => c.code === code)) {
+      soundDuplicate(); vibrate([100, 50, 100]); flashCard(binId, 'duplicate');
+      showToast(`مكرر في ${targetBin.name}`, 'duplicate'); return;
+    }
+
+    const sourceBin = bins.find(b => b.id !== binId && b.codes.some(c => c.code === code));
+    if (sourceBin) {
+      sourceBin.codes = sourceBin.codes.filter(c => c.code !== code);
+      targetBin.codes.unshift({ code, timestamp: Date.now() });
+      saveState(); soundTransfer(); vibrate([50, 30, 50, 30, 80]); flashCard(binId, 'transfer');
+      renderBin(sourceBin.id); renderBin(binId);
+      showToast(`نقل من ${sourceBin.name} إلى ${targetBin.name}`, 'transfer', 3000); return;
+    }
+
+    targetBin.codes.unshift({ code, timestamp: Date.now() });
+    saveState(); soundSuccess(); vibrate(40); flashCard(binId, 'success');
+    renderBin(binId);
+    showToast(`أضيف إلى ${targetBin.name}`, 'success', 1500);
+  }
+
+  function deleteCode(binId, code) {
+    const bin = bins.find(b => b.id === binId);
+    if (!bin) return;
+    bin.codes = bin.codes.filter(c => c.code !== code);
+    saveState(); renderBin(binId);
+  }
+
+  function flashCard(binId, type) {
+    const card = document.querySelector(`.bin-card[data-bin-id="${binId}"]`);
+    if (!card) return;
+    card.classList.remove('flash-success', 'flash-duplicate', 'flash-transfer');
+    void card.offsetWidth;
+    card.classList.add(`flash-${type}`);
+    setTimeout(() => card.classList.remove(`flash-${type}`), 600);
+  }
+
+  // ===== DOWNLOAD (SINGLE BIN EXCEL) =====
+  function downloadBin(binId) {
+    const bin = bins.find(b => b.id === binId);
+    if (!bin || bin.codes.length === 0) return showToast('لا توجد أكواد', 'info');
+    
+    const blob = generateSingleExcelBlob(bin);
+    if (blob) {
+      downloadBlob(blob, `${bin.name}.xlsx`);
+      showToast('جارٍ تحميل ملف Excel', 'success');
+    }
+  }
+
+  // ===== SEARCH =====
+  function searchCode() {
+    let code = cleanCode(document.getElementById('searchInput').value); // تنظيف كود البحث أيضا
+    const resultDiv = document.getElementById('searchResult');
+    if (!code) return;
+
+    let found = null;
+    for (const bin of bins) {
+      const match = bin.codes.find(c => c.code === code);
+      if (match) { found = { binName: bin.name, timestamp: match.timestamp, code: match.code }; break; }
+    }
+
+    if (found) {
+      const d = new Date(found.timestamp);
+      resultDiv.innerHTML = `
+        <div class="result-card found">
+          <div class="result-icon"><i class="fas fa-circle-check"></i></div>
+          <div class="result-title">تم العثور على الكود</div>
+          <div class="result-details">
+            <div class="detail-row"><span class="lbl">الكود</span><span class="val" style="direction:ltr">${escapeHtml(found.code)}</span></div>
+            <div class="detail-row"><span class="lbl">الشريط</span><span class="val">${escapeHtml(found.binName)}</span></div>
+            <div class="detail-row"><span class="lbl">التاريخ</span><span class="val">${d.toLocaleDateString('en-GB')}</span></div>
+            <div class="detail-row"><span class="lbl">الوقت</span><span class="val">${d.toLocaleTimeString('en-GB', { hour12: false })}</span></div>
+          </div>
+        </div>
+      `;
+    } else {
+      resultDiv.innerHTML = `
+        <div class="result-card not-found">
+          <div class="result-icon"><i class="fas fa-circle-xmark"></i></div>
+          <div class="result-title">غير موجود</div>
+          <p style="color:var(--muted); font-size:13px;">لم يتم العثور على الكود "${escapeHtml(code)}" في أي شريط</p>
+        </div>
+      `;
+    }
+  }
+
+  // ===== RENDER =====
+  function renderBins() {
+    const list = document.getElementById('binsList');
+    if (bins.length === 0) {
+      list.innerHTML = `<div class="empty-state"><i class="fas fa-folder-plus"></i><h3>لا توجد شرائط</h3><p>أضف موزعاً جديداً للبدء</p></div>`;
+      updateStats(); return;
+    }
+    list.innerHTML = '';
+    bins.forEach(bin => list.appendChild(buildBinCard(bin)));
+    updateStats();
+  }
+
+  function renderBin(binId) {
+    const bin = bins.find(b => b.id === binId);
+    if (!bin) return renderBins();
+    const card = document.querySelector(`.bin-card[data-bin-id="${binId}"]`);
+    if (!card) return renderBins();
+
+    const countEl = card.querySelector('.bin-count');
+    if (countEl) countEl.textContent = bin.codes.length;
+
+    const listEl = card.querySelector('.codes-list');
+    if (listEl) {
+      const codesHtml = bin.codes.length === 0
+        ? `<div class="empty-codes">لا توجد أكواد</div>`
+        : bin.codes.map((c, i) => `
+            <div class="code-row">
+              <div class="code-index">${bin.codes.length - i}</div>
+              <div class="code-value" title="${escapeHtml(c.code)}">${escapeHtml(c.code)}</div>
+              <div class="code-time">${formatTime(c.timestamp)}</div>
+              <button class="code-delete" data-code="${escapeHtml(c.code)}"><i class="fas fa-xmark"></i></button>
+            </div>
+          `).join('');
+      listEl.innerHTML = codesHtml;
+      
+      listEl.querySelectorAll('.code-delete').forEach(btn => {
+        btn.addEventListener('click', (e) => { 
+          e.stopPropagation(); 
+          deleteCode(bin.id, btn.dataset.code); 
+        });
+      });
+    }
+  }
+
+  function buildBinCard(bin) {
+    const card = document.createElement('div');
+    card.className = 'bin-card' + (bin.id === expandedBinId ? ' expanded' : '');
+    card.dataset.binId = bin.id;
+
+    const codesHtml = bin.codes.length === 0
+      ? `<div class="empty-codes">لا توجد أكواد</div>`
+      : bin.codes.map((c, i) => `
+          <div class="code-row">
+            <div class="code-index">${bin.codes.length - i}</div>
+            <div class="code-value" title="${escapeHtml(c.code)}">${escapeHtml(c.code)}</div>
+            <div class="code-time">${formatTime(c.timestamp)}</div>
+            <button class="code-delete" data-code="${escapeHtml(c.code)}"><i class="fas fa-xmark"></i></button>
+          </div>
+        `).join('');
+
+    card.innerHTML = `
+      <div class="bin-header">
+        <div class="bin-toggle"><i class="fas fa-chevron-down"></i></div>
+        <div class="bin-icon"><i class="fas fa-user-tie"></i></div>
+        <input type="text" class="bin-name-input" value="${escapeHtml(bin.name)}" maxlength="40">
+        <span class="bin-count">${bin.codes.length}</span>
+        <label class="bin-select-wrap" title="تحديد للمشاركة">
+          <input type="checkbox" class="bin-select">
+          <i class="fas fa-check"></i>
+        </label>
+        <button class="btn-icon danger" data-act="delete"><i class="fas fa-trash"></i></button>
+      </div>
+      <div class="bin-body">
+        <div class="bin-body-inner">
+          <div class="scan-row">
+            <div class="scan-input-wrap">
+              <input type="text" class="scan-input" placeholder="امسح أو اكتب الكود..." autocomplete="off">
+              <i class="fas fa-barcode scan-icon"></i>
+            </div>
+            <button class="btn-icon" data-act="camera"><i class="fas fa-camera"></i></button>
+          </div>
+          <div class="codes-list">${codesHtml}</div>
+          <div class="bin-footer-actions">
+            <button class="btn btn-secondary" data-act="bulk-add"><i class="fas fa-layer-group"></i> إضافة متعددة</button>
+            <button class="btn btn-secondary" data-act="import"><i class="fas fa-file-import"></i> استيراد Excel</button>
+            <button class="btn btn-secondary" data-act="share"><i class="fas fa-share-nodes"></i> مشاركة</button>
+            <button class="btn btn-secondary" data-act="download"><i class="fas fa-download"></i> تحميل</button>
+            <button class="btn btn-danger" data-act="clear"><i class="fas fa-broom"></i> مسح الأكواد</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const selectWrap = card.querySelector('.bin-select-wrap');
+    const selectInput = card.querySelector('.bin-select');
+    if (selectedBins.has(bin.id)) {
+      selectInput.checked = true;
+      selectWrap.classList.add('checked');
+    }
+    selectInput.addEventListener('change', (e) => {
+      selectWrap.classList.toggle('checked', e.target.checked);
+      toggleSelectBin(bin.id, e.target.checked);
+    });
+    selectWrap.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+
+    card.querySelector('.bin-header').addEventListener('click', (e) => {
+      if (e.target.closest('input') || e.target.closest('button') || e.target.closest('label')) return;
+      expandBin(card.classList.contains('expanded') ? null : bin.id);
+    });
+
+    card.querySelector('.bin-name-input').addEventListener('click', e => e.stopPropagation());
+    card.querySelector('.bin-name-input').addEventListener('change', (e) => renameBin(bin.id, e.target.value));
+    card.querySelector('.bin-name-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
+
+    card.querySelector('.scan-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const val = e.target.value.trim();
+        if (val) {
+          handleScan(bin.id, val);
+          e.target.value = '';
+          e.target.focus();
+        }
+      }
+    });
+
+    card.querySelectorAll('button[data-act]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const act = btn.dataset.act;
+        if (act === 'delete') deleteBin(bin.id);
+        else if (act === 'share') shareBinsAsExcel([bin.id]);
+        else if (act === 'download') downloadBin(bin.id);
+        else if (act === 'clear') clearBin(bin.id);
+        else if (act === 'camera') startCameraForBin(bin.id);
+        else if (act === 'bulk-add') openBulkAddModal(bin.id);
+        else if (act === 'import') triggerExcelImport(bin.id);
+      });
+    });
+
+    card.querySelectorAll('.code-delete').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); deleteCode(bin.id, btn.dataset.code); });
+    });
+
+    return card;
+  }
+
+  function updateStats() {
+    document.getElementById('binCount').textContent = bins.length;
+    document.getElementById('totalCodes').textContent = bins.reduce((s, b) => s + b.codes.length, 0);
+  }
+
+  // ===== MODALS =====
+  function showConfirmModal() {
+    if (!pendingAction) return;
+    document.getElementById('modalTitle').textContent = pendingAction.title;
+    document.getElementById('modalMessage').textContent = pendingAction.message;
+    document.getElementById('confirmModal').classList.add('show');
+  }
+  function hideConfirmModal() { document.getElementById('confirmModal').classList.remove('show'); pendingAction = null; }
+
+  document.getElementById('modalCancel').addEventListener('click', hideConfirmModal);
+  document.getElementById('modalConfirm').addEventListener('click', () => {
+    if (!pendingAction) return;
+    if (pendingAction.type === 'delete-bin') {
+      bins = bins.filter(b => b.id !== pendingAction.id);
+      selectedBins.delete(pendingAction.id);
+      updateShareSelectedBtn();
+      if (expandedBinId === pendingAction.id) expandedBinId = null;
+      saveState(); renderBins();
+      showToast('تم الحذف', 'success');
+    } else if (pendingAction.type === 'clear-bin') {
+      const bin = bins.find(b => b.id === pendingAction.id);
+      if (bin) { bin.codes = []; saveState(); renderBin(bin.id); showToast('تم المسح', 'success'); }
+    }
+    hideConfirmModal();
+  });
+
+  document.getElementById('bulkCancel').addEventListener('click', () => {
+    document.getElementById('bulkAddModal').classList.remove('show');
+    currentBulkBinId = null;
+  });
+  document.getElementById('bulkConfirm').addEventListener('click', processBulkAdd);
+  document.getElementById('excelImportInput').addEventListener('change', handleExcelImport);
+
+  // ===== NAVIGATION =====
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const view = btn.dataset.view;
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === view));
+      if (view === 'view-search') document.getElementById('searchInput').focus();
+    });
+  });
+
+  // ===== SHARE SELECTED BUTTON =====
+  document.getElementById('shareSelectedBtn').addEventListener('click', () => {
+    if (selectedBins.size === 0) {
+      showToast('حدد شريطاً واحداً على الأقل', 'info');
+      return;
+    }
+    shareBinsAsExcel(Array.from(selectedBins));
+  });
+
+  // ===== CAMERA LOGIC =====
+  async function startCameraForBin(binId) {
+    const bin = bins.find(b => b.id === binId);
+    if (!bin) return;
+    
+    currentCamBinId = binId;
+    document.getElementById('camBinName').textContent = `مسح: ${bin.name}`;
+    document.getElementById('camOverlay').classList.add('show');
+    document.getElementById('camStatus').className = 'cam-status scanning';
+    document.getElementById('camStatus').innerHTML = '<i class="fas fa-circle-dot"></i> <span>جارٍ المسح...</span>';
+
+    try {
+      html5QrCode = new Html5Qrcode("reader");
+      await html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        (decodedText) => {
+          if (isScanning) return;
+          isScanning = true;
+          handleScan(currentCamBinId, decodedText); // سيتم تنظيفه داخل دالة handleScan
+          setTimeout(() => { isScanning = false; }, 1500);
+        },
+        () => {}
+      );
+    } catch (err) {
+      showToast('تعذر الوصول للكاميرا', 'duplicate');
+      document.getElementById('camStatus').className = 'cam-status';
+      document.getElementById('camStatus').innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>خطأ في الوصول للكاميرا</span>';
+    }
+  }
+
+  async function stopCamera() {
+    if (html5QrCode) {
+      try { 
+        await html5QrCode.stop(); 
+        html5QrCode.clear(); 
+      } catch (e) {}
+    }
+    document.getElementById('camOverlay').classList.remove('show');
+    currentCamBinId = null;
+  }
+
+  document.getElementById('closeCamBtn').addEventListener('click', stopCamera);
+
+  // ===== SEARCH LOGIC =====
+  document.getElementById('searchBtn').addEventListener('click', searchCode);
+  document.getElementById('searchInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') searchCode();
+  });
+
+  // ===== INIT =====
+  document.getElementById('addBinBtn').addEventListener('click', () => {
+    const input = document.getElementById('newBinName');
+    addBinFromView(input.value);
+    input.value = ''; input.focus();
+  });
+  document.getElementById('newBinName').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('addBinBtn').click();
+  });
+
+  document.addEventListener('click', () => getAudio(), { once: true });
+  document.addEventListener('keydown', () => getAudio(), { once: true });
+
+  loadState();
+  renderBins();
+</script>
+
+
+<script>
+if ('serviceWorker' in navigator) {
+ window.addEventListener('load',()=>{
+   navigator.serviceWorker.register('./service-worker.js');
+ });
+}
+</script>
+
+</body>
+</html>
